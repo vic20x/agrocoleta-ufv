@@ -62,21 +62,27 @@ export function login(loginInput: string, passwordInput: string): { success: boo
   const users = getUsers();
   const clean = loginInput.trim().toLowerCase();
 
-  // Verifica se é o professor
-  if (clean === "professor@ufv.br" || clean === "professor" || clean === "marcelo") {
-    const prof = users.find((u) => u.role === "PROFESSOR") || INITIAL_USERS[0];
-    setCurrentUser(prof);
-    return { success: true, user: prof };
-  }
+  // 1. Busca direta por login exato (tanto PROFESSOR quanto PRODUCER)
+  let found = users.find((u) => u.login.toLowerCase() === clean);
 
-  // Verifica produtores cadastrados
-  const found = users.find(
-    (u) =>
-      u.role === "PRODUCER" &&
-      (u.login.toLowerCase() === clean ||
-        u.name.toLowerCase().includes(clean) ||
-        (u.phone && u.phone.replace(/\D/g, "") === clean.replace(/\D/g, "")))
-  );
+  // 2. Mapeamento de conveniência e aliases
+  if (!found) {
+    if (clean === "testeprofessor" || clean === "teste professor" || clean === "professor teste") {
+      found = users.find((u) => u.login === "testeprofessor") || users.find((u) => u.role === "PROFESSOR");
+    } else if (clean === "testeprodutor" || clean === "teste produtor" || clean === "produtor teste") {
+      found = users.find((u) => u.login === "testeprodutor") || users.find((u) => u.role === "PRODUCER");
+    } else if (clean === "professor" || clean === "docente" || clean === "marcelo" || clean === "orientador") {
+      found = users.find((u) => u.role === "PROFESSOR");
+    } else {
+      // 3. Busca por aproximação de nome ou telefone
+      found = users.find(
+        (u) =>
+          u.name.toLowerCase().includes(clean) ||
+          (u.propertyName && u.propertyName.toLowerCase().includes(clean)) ||
+          (u.phone && u.phone.replace(/\D/g, "") === clean.replace(/\D/g, ""))
+      );
+    }
+  }
 
   if (found) {
     setCurrentUser(found);
