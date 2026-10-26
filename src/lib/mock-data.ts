@@ -86,7 +86,7 @@ export const INITIAL_FIELDS: CollectionField[] = [
   {
     id: "area_ha",
     label: "Área Trabalhada",
-    type: "number",
+    type: "area",
     unit: "ha",
     required: true,
     chartType: "bar",
@@ -110,7 +110,7 @@ export const INITIAL_FIELDS: CollectionField[] = [
   {
     id: "custo_operacao",
     label: "Custo Estimado da Operação",
-    type: "number",
+    type: "currency",
     unit: "R$",
     required: false,
     chartType: "bar",
@@ -258,7 +258,7 @@ export const PRESET_TEMPLATES = [
       {
         id: "area_ha",
         label: "Área do Talhão",
-        type: "number" as const,
+        type: "area" as const,
         unit: "ha",
         required: true,
         chartType: "bar" as const,

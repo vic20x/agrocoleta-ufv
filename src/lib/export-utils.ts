@@ -33,6 +33,17 @@ export function exportAnalysisToExcel(submissions: FarmSubmission[], fields: Col
   // Aba 2: Resumo Consolidado por Produtor
   const producerMap: Record<string, { name: string; property: string; city: string; count: number; areas: number[]; prods: number[]; custos: number[] }> = {};
 
+  // Cria conjuntos de IDs baseados no tipo ou identificador do campo
+  const areaFieldIds = new Set(
+    fields.filter((f) => f.type === "area" || f.id.includes("area")).map((f) => f.id)
+  );
+  const prodFieldIds = new Set(
+    fields.filter((f) => f.id.includes("producao") || f.id.includes("sacas")).map((f) => f.id)
+  );
+  const custoFieldIds = new Set(
+    fields.filter((f) => f.type === "currency" || f.id.includes("custo")).map((f) => f.id)
+  );
+
   submissions.forEach((s) => {
     if (!producerMap[s.producerId]) {
       producerMap[s.producerId] = {
@@ -48,13 +59,13 @@ export function exportAnalysisToExcel(submissions: FarmSubmission[], fields: Col
     const p = producerMap[s.producerId];
     p.count += 1;
 
-    // Tenta achar áreas, produções ou custos nos valores
+    // Acha áreas, produções ou custos nos valores pelos IDs tipados ou heurística
     Object.entries(s.values).forEach(([k, v]) => {
-      const num = Number(v);
+      const num = typeof v === "number" ? v : Number(String(v).replace(",", "."));
       if (!isNaN(num)) {
-        if (k.includes("area")) p.areas.push(num);
-        if (k.includes("producao") || k.includes("sacas")) p.prods.push(num);
-        if (k.includes("custo")) p.custos.push(num);
+        if (areaFieldIds.has(k) || k.includes("area")) p.areas.push(num);
+        if (prodFieldIds.has(k) || k.includes("producao") || k.includes("sacas")) p.prods.push(num);
+        if (custoFieldIds.has(k) || k.includes("custo")) p.custos.push(num);
       }
     });
   });

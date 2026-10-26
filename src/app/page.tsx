@@ -10,6 +10,7 @@ import {
   addField,
   deleteField,
   saveFields,
+  reorderFields,
   getSubmissions,
   addSubmission,
   getUsers,
@@ -22,6 +23,8 @@ import {
   CollectionField,
   FarmSubmission,
   ProfessorFeedback,
+  FieldType,
+  AnalyticalChartType,
 } from "@/types/producer";
 import { exportAnalysisToExcel, exportAnalysisToCSV } from "@/lib/export-utils";
 import { PRESET_TEMPLATES } from "@/lib/mock-data";
@@ -54,6 +57,8 @@ import {
   UploadCloud,
   Calendar,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   X,
   SlidersHorizontal,
   Layers,
@@ -64,6 +69,14 @@ import {
   Eye,
   Filter,
   Search,
+  DollarSign,
+  Landmark,
+  Tag,
+  Camera,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  PieChart,
 } from "lucide-react";
 
 export default function MainPage() {
@@ -92,6 +105,7 @@ export default function MainPage() {
     type: "PHOTO" | "FILE";
   } | null>(null);
   const [producerSuccessMsg, setProducerSuccessMsg] = useState("");
+  const [producerErrorMsg, setProducerErrorMsg] = useState("");
 
   // Estados do Professor
   const [activeProfTab, setActiveProfTab] = useState<
@@ -105,9 +119,15 @@ export default function MainPage() {
   const [activeAnalyticalField, setActiveAnalyticalField] = useState<string>("area_ha");
   const [analyticalViewMode, setAnalyticalViewMode] = useState<AnalyticalViewMode>("DEEP_DIVE");
 
+  // Estados da Tabela de Registros (Ordenação e Filtros Rápidos)
+  const [sortKey, setSortKey] = useState<string>("createdAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [quickFilter, setQuickFilter] = useState<"ALL" | "WITH_ATTACHMENT" | "WITH_AI" | "YEAR_2026">("ALL");
+
   // Estados do Construtor de Campos
   const [newFieldLabel, setNewFieldLabel] = useState("");
-  const [newFieldType, setNewFieldType] = useState<"number" | "text" | "select" | "date">("number");
+  const [newFieldType, setNewFieldType] = useState<FieldType>("number");
+  const [newFieldChartType, setNewFieldChartType] = useState<AnalyticalChartType>("bar");
   const [newFieldUnit, setNewFieldUnit] = useState("");
   const [newFieldOptions, setNewFieldOptions] = useState("");
   const [newFieldRequired, setNewFieldRequired] = useState(false);
@@ -205,6 +225,18 @@ export default function MainPage() {
   const handleProducerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    setProducerErrorMsg("");
+
+    // Validação estrita de campos obrigatórios configurados
+    for (const f of fields) {
+      if (f.required) {
+        const val = formValues[f.id];
+        if (val === undefined || val === null || String(val).trim() === "") {
+          setProducerErrorMsg(`Por favor, preencha o campo obrigatório: "${f.label}".`);
+          return;
+        }
+      }
+    }
 
     addSubmission({
       producerId: user.id,
@@ -219,6 +251,7 @@ export default function MainPage() {
     setFormValues({});
     setRawNotes("");
     setAttachedFile(null);
+    setProducerErrorMsg("");
     setProducerSuccessMsg("Lançamento sincronizado com a base de pesquisa agronômica.");
     setTimeout(() => setProducerSuccessMsg(""), 4500);
     refreshAll();
@@ -242,6 +275,28 @@ export default function MainPage() {
   };
 
   // --- HANDLERS DO PROFESSOR (CONSTRUTOR DE CAMPOS) ---
+  const handleSelectFieldType = (type: FieldType) => {
+    setNewFieldType(type);
+    if (type === "currency") {
+      setNewFieldUnit("R$");
+      setNewFieldChartType("bar");
+    } else if (type === "area") {
+      setNewFieldUnit("ha");
+      setNewFieldChartType("bar");
+    } else if (type === "number") {
+      if (newFieldUnit === "R$" || newFieldUnit === "ha") {
+        setNewFieldUnit("");
+      }
+      setNewFieldChartType("bar");
+    } else if (type === "select") {
+      setNewFieldUnit("");
+      setNewFieldChartType("distribution");
+    } else {
+      setNewFieldUnit("");
+      setNewFieldChartType("none");
+    }
+  };
+
   const handleCreateField = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFieldLabel.trim()) return;
@@ -259,19 +314,28 @@ export default function MainPage() {
       unit: newFieldUnit.trim() || undefined,
       options: optionsList,
       required: newFieldRequired,
-      chartType:
-        newFieldType === "number"
-          ? "bar"
-          : newFieldType === "select"
-          ? "distribution"
-          : "none",
+      chartType: newFieldChartType,
     });
 
     setNewFieldLabel("");
     setNewFieldUnit("");
     setNewFieldOptions("");
     setNewFieldRequired(false);
+    setNewFieldType("number");
+    setNewFieldChartType("bar");
     showToast("Novo parâmetro adicionado ao protocolo de coleta.");
+    refreshAll();
+  };
+
+  const handleMoveFieldUp = (index: number) => {
+    if (index <= 0) return;
+    reorderFields(index, index - 1);
+    refreshAll();
+  };
+
+  const handleMoveFieldDown = (index: number) => {
+    if (index >= fields.length - 1) return;
+    reorderFields(index, index + 1);
     refreshAll();
   };
 
@@ -720,6 +784,21 @@ export default function MainPage() {
             </div>
           )}
 
+          {producerErrorMsg && (
+            <div className="mb-6 p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between text-xs text-red-900">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-700 shrink-0" strokeWidth={1.75} />
+                <span className="font-medium">{producerErrorMsg}</span>
+              </div>
+              <button
+                onClick={() => setProducerErrorMsg("")}
+                className="text-red-700 hover:text-red-950 p-1"
+              >
+                <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+              </button>
+            </div>
+          )}
+
           <div className="grid lg:grid-cols-12 gap-8 items-start">
             {/* Coluna Principal (lg:col-span-7): Novo Lançamento da Propriedade */}
             <div className="lg:col-span-7 bg-white border border-[#E2E8F0] rounded-xl p-6 shadow-2xs">
@@ -769,14 +848,83 @@ export default function MainPage() {
                             </option>
                           ))}
                         </select>
+                      ) : f.type === "photo" ? (
+                        <div className="p-3 bg-[#F8FAFC] border border-dashed border-slate-300 rounded-lg">
+                          {formValues[f.id] ? (
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-mono font-medium text-emerald-800 truncate">
+                                📷 {formValues[f.id]}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = { ...formValues };
+                                  delete updated[f.id];
+                                  setFormValues(updated);
+                                }}
+                                className="text-[11px] text-red-600 hover:underline ml-2"
+                              >
+                                Remover
+                              </button>
+                            </div>
+                          ) : (
+                            <label className="flex items-center justify-center gap-2 py-2 cursor-pointer text-slate-600 hover:text-emerald-800 transition-colors">
+                              <Camera className="w-4 h-4" strokeWidth={1.75} />
+                              <span className="text-xs font-medium">Tirar foto ou anexar imagem</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setFormValues({ ...formValues, [f.id]: file.name });
+                                    if (!attachedFile) {
+                                      const isImg = file.type.startsWith("image/");
+                                      const sizeKb = (file.size / 1024).toFixed(0);
+                                      const formattedSize =
+                                        file.size > 1024 * 1024
+                                          ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+                                          : `${sizeKb} KB`;
+                                      setAttachedFile({
+                                        name: file.name,
+                                        size: formattedSize,
+                                        type: isImg ? "PHOTO" : "FILE",
+                                      });
+                                    }
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                          )}
+                        </div>
                       ) : (
                         <div className="relative flex items-center">
+                          {f.type === "currency" && (
+                            <span className="absolute left-3 text-xs font-mono font-semibold text-emerald-800 select-none">
+                              R$
+                            </span>
+                          )}
                           <input
-                            type={f.type}
+                            type={
+                              f.type === "number" || f.type === "currency" || f.type === "area"
+                                ? "number"
+                                : f.type === "date"
+                                ? "date"
+                                : "text"
+                            }
                             required={f.required}
-                            step={f.type === "number" ? "any" : undefined}
+                            step={
+                              f.type === "number" || f.type === "currency" || f.type === "area"
+                                ? "any"
+                                : undefined
+                            }
                             placeholder={
-                              f.type === "number"
+                              f.type === "currency"
+                                ? "0,00"
+                                : f.type === "area"
+                                ? "0.00"
+                                : f.type === "number"
                                 ? "0.00"
                                 : f.unit
                                 ? `Informe em ${f.unit}`
@@ -787,12 +935,16 @@ export default function MainPage() {
                               setFormValues({ ...formValues, [f.id]: e.target.value })
                             }
                             className={`w-full px-3 py-2 text-xs sm:text-sm border border-[#E2E8F0] rounded-lg bg-white text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-800 transition-colors ${
-                              f.type === "number" ? "font-mono tabular-nums" : ""
-                            } ${f.unit ? "pr-16" : ""}`}
+                              f.type === "number" || f.type === "currency" || f.type === "area"
+                                ? "font-mono tabular-nums"
+                                : ""
+                            } ${f.type === "currency" ? "pl-9" : ""} ${
+                              (f.unit && f.type !== "currency") || f.type === "area" ? "pr-16" : ""
+                            }`}
                           />
-                          {f.unit && (
+                          {((f.unit && f.type !== "currency") || f.type === "area") && (
                             <span className="absolute right-2.5 px-1.5 py-0.5 text-[10px] font-mono font-medium bg-slate-100 text-slate-600 rounded border border-slate-200 pointer-events-none">
-                              {f.unit}
+                              {f.type === "area" ? (f.unit || "ha") : f.unit}
                             </span>
                           )}
                         </div>
@@ -998,24 +1150,78 @@ export default function MainPage() {
   // ============================================================================
   // 2º AMBIENTE — WORKSTATION ANALÍTICA DO PROFESSOR (user.role === 'PROFESSOR')
   // ============================================================================
-  const filteredSubs = submissions.filter((s) => {
-    const matchesProducer =
-      selectedProducerFilter === "TODOS" || s.producerId === selectedProducerFilter;
-    if (!matchesProducer) return false;
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.trim().toLowerCase();
-    const inBasic =
-      s.producerName.toLowerCase().includes(q) ||
-      s.propertyName.toLowerCase().includes(q) ||
-      s.cityState.toLowerCase().includes(q) ||
-      (s.rawNotes && s.rawNotes.toLowerCase().includes(q));
-    const inValues = Object.values(s.values).some((v) =>
-      String(v ?? "")
-        .toLowerCase()
-        .includes(q)
-    );
-    return inBasic || inValues;
-  });
+  const filteredAndSortedSubs = submissions
+    .filter((s) => {
+      const matchesProducer =
+        selectedProducerFilter === "TODOS" || s.producerId === selectedProducerFilter;
+      if (!matchesProducer) return false;
+
+      // Filtros Rápidos (Pílulas)
+      if (quickFilter === "WITH_ATTACHMENT") {
+        const hasAttachment = Boolean(s.attachment);
+        const hasPhotoValue = fields.some(
+          (f) => f.type === "photo" && Boolean(s.values[f.id])
+        );
+        if (!hasAttachment && !hasPhotoValue) return false;
+      }
+      if (quickFilter === "WITH_AI" && (!s.extractedMetrics || s.extractedMetrics.length === 0)) return false;
+      if (quickFilter === "YEAR_2026" && !s.createdAt.startsWith("2026")) return false;
+
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.trim().toLowerCase();
+      const inBasic =
+        s.producerName.toLowerCase().includes(q) ||
+        s.propertyName.toLowerCase().includes(q) ||
+        s.cityState.toLowerCase().includes(q) ||
+        (s.rawNotes && s.rawNotes.toLowerCase().includes(q));
+      const inValues = Object.values(s.values).some((v) =>
+        String(v ?? "")
+          .toLowerCase()
+          .includes(q)
+      );
+      return inBasic || inValues;
+    })
+    .sort((a, b) => {
+      let valA: any = "";
+      let valB: any = "";
+
+      if (sortKey === "createdAt") {
+        valA = a.createdAt;
+        valB = b.createdAt;
+      } else if (sortKey === "propertyName") {
+        valA = a.propertyName;
+        valB = b.propertyName;
+      } else if (sortKey === "producerName") {
+        valA = a.producerName;
+        valB = b.producerName;
+      } else {
+        valA = a.values[sortKey] ?? "";
+        valB = b.values[sortKey] ?? "";
+      }
+
+      const parseNum = (v: any) => {
+        if (typeof v === "number") return v;
+        if (typeof v === "string" && v.trim() !== "") {
+          const parsed = Number(v.replace(",", "."));
+          return isNaN(parsed) ? NaN : parsed;
+        }
+        return NaN;
+      };
+
+      const numA = parseNum(valA);
+      const numB = parseNum(valB);
+
+      let cmp = 0;
+      if (!isNaN(numA) && !isNaN(numB)) {
+        cmp = numA - numB;
+      } else {
+        cmp = String(valA).localeCompare(String(valB), "pt-BR", { numeric: true });
+      }
+
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+  const filteredSubs = filteredAndSortedSubs;
 
   const totalAreaHa = filteredSubs.reduce((acc, s) => acc + (Number(s.values.area_ha) || 0), 0);
   const totalProducaoSacas = filteredSubs.reduce(
@@ -1557,6 +1763,76 @@ export default function MainPage() {
                 </div>
               </div>
 
+              {/* Pílulas de Filtros Rápidos (1 Clique) */}
+              <div className="flex flex-wrap items-center gap-2 pt-1 pb-1">
+                <span className="text-xs font-medium text-slate-500 flex items-center gap-1.5 mr-1">
+                  <Filter className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
+                  <span>Filtros rápidos:</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setQuickFilter("ALL")}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                    quickFilter === "ALL"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "bg-white border border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  Todos os Registros
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickFilter("WITH_ATTACHMENT")}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    quickFilter === "WITH_ATTACHMENT"
+                      ? "bg-emerald-800 text-white shadow-xs"
+                      : "bg-white border border-slate-200 text-slate-700 hover:border-emerald-800 hover:text-emerald-900"
+                  }`}
+                >
+                  <Paperclip className="w-3 h-3" strokeWidth={1.75} />
+                  <span>Com Foto / Anexo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickFilter("WITH_AI")}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    quickFilter === "WITH_AI"
+                      ? "bg-emerald-800 text-white shadow-xs"
+                      : "bg-white border border-slate-200 text-slate-700 hover:border-emerald-800 hover:text-emerald-900"
+                  }`}
+                >
+                  <Sparkles className="w-3 h-3" strokeWidth={1.75} />
+                  <span>Com Métricas IA</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickFilter("YEAR_2026")}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    quickFilter === "YEAR_2026"
+                      ? "bg-emerald-800 text-white shadow-xs"
+                      : "bg-white border border-slate-200 text-slate-700 hover:border-emerald-800 hover:text-emerald-900"
+                  }`}
+                >
+                  <Calendar className="w-3 h-3" strokeWidth={1.75} />
+                  <span>Safra 2026</span>
+                </button>
+
+                {(quickFilter !== "ALL" || selectedProducerFilter !== "TODOS" || searchQuery) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickFilter("ALL");
+                      setSelectedProducerFilter("TODOS");
+                      setSearchQuery("");
+                    }}
+                    className="ml-auto text-xs font-medium text-slate-500 hover:text-red-600 flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    <span>Limpar todos os filtros</span>
+                  </button>
+                )}
+              </div>
+
               {/* Data Grid Estilo Linear / Airtable com Cabeçalho Fixo (sticky top-0) */}
               <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-2xs overflow-hidden">
                 <div className="px-4 py-3 bg-[#F8FAFC] border-b border-[#E2E8F0] flex flex-wrap items-center justify-between gap-2">
@@ -1567,19 +1843,93 @@ export default function MainPage() {
                     </span>
                   </div>
                   <span className="text-[11px] font-mono text-slate-500 tabular-nums">
-                    {filteredSubs.length} registro(s) listado(s) • Clique em uma linha para inspecionar
+                    {filteredSubs.length} registro(s) listado(s) • Clique em qualquer cabeçalho para ordenar
                   </span>
                 </div>
 
                 <div className="overflow-x-auto max-h-[540px] overflow-y-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead className="sticky top-0 z-10 bg-[#F8FAFC] shadow-[0_1px_0_0_#E2E8F0]">
-                      <tr className="text-[11px] font-mono uppercase text-slate-500">
-                        <th className="py-2.5 px-3.5 whitespace-nowrap">Data / Hora</th>
-                        <th className="py-2.5 px-3.5 whitespace-nowrap">Propriedade & Produtor</th>
+                      <tr className="text-[11px] font-mono uppercase text-slate-500 select-none">
+                        <th
+                          onClick={() => {
+                            if (sortKey === "createdAt") {
+                              setSortDir(sortDir === "asc" ? "desc" : "asc");
+                            } else {
+                              setSortKey("createdAt");
+                              setSortDir("desc");
+                            }
+                          }}
+                          className="py-2.5 px-3.5 whitespace-nowrap cursor-pointer hover:bg-slate-200/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>Data / Hora</span>
+                            {sortKey === "createdAt" ? (
+                              sortDir === "asc" ? (
+                                <ArrowUp className="w-3 h-3 text-emerald-800" strokeWidth={2} />
+                              ) : (
+                                <ArrowDown className="w-3 h-3 text-emerald-800" strokeWidth={2} />
+                              )
+                            ) : (
+                              <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50" strokeWidth={1.5} />
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          onClick={() => {
+                            if (sortKey === "propertyName") {
+                              setSortDir(sortDir === "asc" ? "desc" : "asc");
+                            } else {
+                              setSortKey("propertyName");
+                              setSortDir("asc");
+                            }
+                          }}
+                          className="py-2.5 px-3.5 whitespace-nowrap cursor-pointer hover:bg-slate-200/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>Propriedade & Produtor</span>
+                            {sortKey === "propertyName" ? (
+                              sortDir === "asc" ? (
+                                <ArrowUp className="w-3 h-3 text-emerald-800" strokeWidth={2} />
+                              ) : (
+                                <ArrowDown className="w-3 h-3 text-emerald-800" strokeWidth={2} />
+                              )
+                            ) : (
+                              <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50" strokeWidth={1.5} />
+                            )}
+                          </div>
+                        </th>
                         {fields.map((f) => (
-                          <th key={f.id} className="py-2.5 px-3.5 whitespace-nowrap">
-                            {f.label} {f.unit ? `(${f.unit})` : ""}
+                          <th
+                            key={f.id}
+                            onClick={() => {
+                              if (sortKey === f.id) {
+                                setSortDir(sortDir === "asc" ? "desc" : "asc");
+                              } else {
+                                setSortKey(f.id);
+                                setSortDir(
+                                  f.type === "number" || f.type === "currency" || f.type === "area"
+                                    ? "desc"
+                                    : "asc"
+                                );
+                              }
+                            }}
+                            className="py-2.5 px-3.5 whitespace-nowrap cursor-pointer hover:bg-slate-200/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-1">
+                              <span>
+                                {f.label} {f.unit ? `(${f.unit})` : ""}
+                              </span>
+                              {sortKey === f.id ? (
+                                sortDir === "asc" ? (
+                                  <ArrowUp className="w-3 h-3 text-emerald-800" strokeWidth={2} />
+                                ) : (
+                                  <ArrowDown className="w-3 h-3 text-emerald-800" strokeWidth={2} />
+                                )
+                              ) : (
+                                <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50" strokeWidth={1.5} />
+                              )}
+                            </div>
                           </th>
                         ))}
                         <th className="py-2.5 px-3.5 whitespace-nowrap">Indicadores IA</th>
@@ -1618,24 +1968,49 @@ export default function MainPage() {
 
                             {fields.map((f) => {
                               const val = sub.values[f.id];
+                              const isNumeric =
+                                f.type === "number" || f.type === "currency" || f.type === "area";
                               return (
                                 <td
                                   key={f.id}
                                   className={`py-3 px-3.5 whitespace-nowrap ${
-                                    f.type === "number"
+                                    isNumeric
                                       ? "font-mono tabular-nums text-slate-900 font-medium"
                                       : "text-slate-700"
                                   }`}
                                 >
                                   {val !== undefined && val !== "" ? (
-                                    <>
-                                      {val}{" "}
-                                      {f.unit && (
+                                    f.type === "currency" ? (
+                                      <span className="text-emerald-900 font-semibold font-mono tabular-nums">
+                                        R${" "}
+                                        {typeof val === "number"
+                                          ? val.toLocaleString("pt-BR")
+                                          : !isNaN(Number(String(val).replace(",", ".")))
+                                          ? Number(String(val).replace(",", ".")).toLocaleString("pt-BR")
+                                          : val}
+                                      </span>
+                                    ) : f.type === "area" ? (
+                                      <span>
+                                        {val}{" "}
                                         <span className="text-[10px] font-mono text-slate-400">
-                                          {f.unit}
+                                          {f.unit || "ha"}
                                         </span>
-                                      )}
-                                    </>
+                                      </span>
+                                    ) : f.type === "photo" ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                        <Camera className="w-3 h-3" strokeWidth={1.5} />
+                                        <span className="truncate max-w-[120px]">{String(val)}</span>
+                                      </span>
+                                    ) : (
+                                      <>
+                                        {val}{" "}
+                                        {f.unit && (
+                                          <span className="text-[10px] font-mono text-slate-400">
+                                            {f.unit}
+                                          </span>
+                                        )}
+                                      </>
+                                    )
                                   ) : (
                                     <span className="text-slate-300">—</span>
                                   )}
@@ -1774,7 +2149,7 @@ export default function MainPage() {
                   </div>
                 </div>
 
-                {/* Formulário para Adicionar Novo Campo */}
+                {/* Formulário para Adicionar Novo Campo com Catálogo Visual de Tipos */}
                 <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-2xs">
                   <div className="flex items-center gap-2 mb-1">
                     <SlidersHorizontal className="w-4 h-4 text-emerald-800" strokeWidth={1.75} />
@@ -1783,18 +2158,131 @@ export default function MainPage() {
                     </h3>
                   </div>
                   <p className="text-xs text-slate-500 mb-4">
-                    Campos numéricos geram gráficos de barras SVG; campos de seleção geram gráficos Donut.
+                    Escolha a natureza agronômica do dado no catálogo visual abaixo para gerar automaticamente a máscara de entrada e a renderização analítica.
                   </p>
 
                   <form onSubmit={handleCreateField} className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Catálogo Visual de Cards de Tipos */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-2">
+                        1. Selecione a Natureza do Dado Agronômico *
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        {[
+                          {
+                            type: "number" as FieldType,
+                            label: "Numérico Contínuo",
+                            desc: "Sacas, kg, dosagens, chuva",
+                            icon: BarChart3,
+                            badge: "Barras SVG",
+                          },
+                          {
+                            type: "currency" as FieldType,
+                            label: "Moeda / Custo (R$)",
+                            desc: "Insumos, mão de obra",
+                            icon: DollarSign,
+                            badge: "Financeiro",
+                          },
+                          {
+                            type: "area" as FieldType,
+                            label: "Área / Gleba (ha)",
+                            desc: "Hectares trabalhados",
+                            icon: Landmark,
+                            badge: "Talhão",
+                          },
+                          {
+                            type: "select" as FieldType,
+                            label: "Opções / Categorias",
+                            desc: "Culturas, manejos",
+                            icon: Tag,
+                            badge: "Donut SVG",
+                          },
+                          {
+                            type: "text" as FieldType,
+                            label: "Texto Descritivo",
+                            desc: "Talhão, lote, observações",
+                            icon: FileText,
+                            badge: "Descritivo",
+                          },
+                          {
+                            type: "date" as FieldType,
+                            label: "Data / Safra",
+                            desc: "Data da operação",
+                            icon: Calendar,
+                            badge: "Cronológico",
+                          },
+                          {
+                            type: "photo" as FieldType,
+                            label: "Foto / Anexo",
+                            desc: "Evidência da lavoura",
+                            icon: Camera,
+                            badge: "Multimídia",
+                          },
+                        ].map((item) => {
+                          const isSelected = newFieldType === item.type;
+                          const IconComp = item.icon;
+                          return (
+                            <button
+                              key={item.type}
+                              type="button"
+                              onClick={() => handleSelectFieldType(item.type)}
+                              className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                                isSelected
+                                  ? "border-emerald-800 bg-emerald-50/50 ring-2 ring-emerald-800/15 shadow-2xs"
+                                  : "border-slate-200 bg-[#F8FAFC] hover:border-slate-300"
+                              }`}
+                            >
+                              <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <div
+                                    className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                                      isSelected
+                                        ? "bg-emerald-800 text-white"
+                                        : "bg-white border border-slate-200 text-slate-600"
+                                    }`}
+                                  >
+                                    <IconComp className="w-3.5 h-3.5" strokeWidth={1.75} />
+                                  </div>
+                                  <span
+                                    className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${
+                                      isSelected
+                                        ? "bg-emerald-800 text-white"
+                                        : "bg-slate-200/60 text-slate-600"
+                                    }`}
+                                  >
+                                    {item.badge}
+                                  </span>
+                                </div>
+                                <span className="text-xs font-semibold text-slate-900 block leading-tight">
+                                  {item.label}
+                                </span>
+                                <span className="text-[10px] text-slate-500 mt-1 block leading-tight">
+                                  {item.desc}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Detalhes do Campo: Rótulo e Unidade */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                       <div className="sm:col-span-2">
                         <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Rótulo da Variável *
+                          2. Rótulo da Variável *
                         </label>
                         <input
                           type="text"
-                          placeholder="Ex: Umidade do Grão, Altitude, Dosagem NPK..."
+                          placeholder={
+                            newFieldType === "currency"
+                              ? "Ex: Custo Operacional, Valor Adubo..."
+                              : newFieldType === "area"
+                              ? "Ex: Área Trabalhada, Gleba Café..."
+                              : newFieldType === "photo"
+                              ? "Ex: Foto da Lavoura, Laudo da Folha..."
+                              : "Ex: Umidade do Grão, Altitude, Dosagem NPK..."
+                          }
                           value={newFieldLabel}
                           onChange={(e) => setNewFieldLabel(e.target.value)}
                           className="w-full px-3 py-2 text-xs sm:text-sm border border-[#E2E8F0] rounded-lg focus:outline-hidden focus:border-emerald-800"
@@ -1815,24 +2303,27 @@ export default function MainPage() {
                       </div>
                     </div>
 
+                    {/* Formato Analítico & Obrigatoriedade */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Natureza do Dado & Visualização *
+                          3. Formato Analítico Sugerido
                         </label>
                         <select
-                          value={newFieldType}
-                          onChange={(e) => setNewFieldType(e.target.value as any)}
+                          value={newFieldChartType}
+                          onChange={(e) =>
+                            setNewFieldChartType(e.target.value as AnalyticalChartType)
+                          }
                           className="w-full px-3 py-2 text-xs sm:text-sm border border-[#E2E8F0] rounded-lg bg-white focus:outline-hidden focus:border-emerald-800"
                         >
-                          <option value="number">Numérico Contínuo (Gráfico de Colunas SVG)</option>
-                          <option value="select">Categórico / Opções (Gráfico Donut SVG)</option>
-                          <option value="text">Texto Descritivo Curto</option>
-                          <option value="date">Data de Ocorrência</option>
+                          <option value="bar">Gráfico de Barras Comparativo (SVG)</option>
+                          <option value="distribution">Gráfico Donut Proporcional (SVG)</option>
+                          <option value="kpi">Indicador de Topo (KPI Card)</option>
+                          <option value="none">Apenas Tabela de Dados</option>
                         </select>
                       </div>
 
-                      <div className="flex items-end pb-1">
+                      <div className="flex items-end pb-2">
                         <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
                           <input
                             type="checkbox"
@@ -1860,42 +2351,74 @@ export default function MainPage() {
                       </div>
                     )}
 
-                    <div className="pt-1 flex justify-end">
+                    <div className="pt-2 flex justify-end">
                       <button
                         type="submit"
                         className="inline-flex items-center gap-1.5 py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
-                        <span>Inserir Campo no Formulário</span>
+                        <span>Inserir Variável no Protocolo</span>
                       </button>
                     </div>
                   </form>
                 </div>
 
-                {/* Lista de Campos Ativos */}
+                {/* Lista de Campos Ativos com Reordenação Subir / Descer */}
                 <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-2xs">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-700">
                       Variáveis Ativas no Protocolo ({fields.length})
                     </h3>
                     <span className="text-[11px] font-mono text-slate-400">
-                      Sincronizado em tempo real
+                      Suba ou desça para reordenar na hora
                     </span>
                   </div>
 
                   <div className="space-y-2">
                     {fields.map((f, idx) => {
                       const isConfirmingDel = pendingDeleteFieldId === f.id;
+                      const isFirst = idx === 0;
+                      const isLast = idx === fields.length - 1;
                       return (
                         <div
                           key={f.id}
-                          className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg flex items-center justify-between gap-3 text-xs"
+                          className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg flex items-center justify-between gap-3 text-xs hover:border-slate-300 transition-colors"
                         >
-                          <div className="min-w-0">
+                          {/* Controles de Subir / Descer */}
+                          <div className="flex flex-col items-center gap-0.5 shrink-0">
+                            <button
+                              type="button"
+                              disabled={isFirst}
+                              onClick={() => handleMoveFieldUp(idx)}
+                              className={`p-1 rounded transition-colors ${
+                                isFirst
+                                  ? "text-slate-300 cursor-not-allowed"
+                                  : "text-slate-600 hover:text-emerald-800 hover:bg-emerald-50 cursor-pointer"
+                              }`}
+                              title="Subir posição no formulário"
+                            >
+                              <ChevronUp className="w-3.5 h-3.5" strokeWidth={2} />
+                            </button>
+                            <span className="font-mono text-[10px] text-slate-400 tabular-nums">
+                              #{idx + 1}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={isLast}
+                              onClick={() => handleMoveFieldDown(idx)}
+                              className={`p-1 rounded transition-colors ${
+                                isLast
+                                  ? "text-slate-300 cursor-not-allowed"
+                                  : "text-slate-600 hover:text-emerald-800 hover:bg-emerald-50 cursor-pointer"
+                              }`}
+                              title="Descer posição no formulário"
+                            >
+                              <ChevronDown className="w-3.5 h-3.5" strokeWidth={2} />
+                            </button>
+                          </div>
+
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-mono text-[11px] text-slate-400 tabular-nums">
-                                #{idx + 1}
-                              </span>
                               <span className="font-semibold text-slate-900">{f.label}</span>
                               {f.unit && (
                                 <span className="px-1.5 py-0.5 text-[10px] font-mono bg-white border border-slate-200 text-slate-700 rounded">
@@ -1905,6 +2428,17 @@ export default function MainPage() {
                               <span className="px-1.5 py-0.5 text-[10px] font-mono uppercase bg-emerald-50 text-emerald-800 border border-emerald-200/70 rounded">
                                 {f.type}
                               </span>
+                              {f.chartType && f.chartType !== "none" && (
+                                <span className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 text-slate-600 rounded">
+                                  {f.chartType === "bar"
+                                    ? "Gráfico Barras"
+                                    : f.chartType === "distribution"
+                                    ? "Gráfico Donut"
+                                    : f.chartType === "kpi"
+                                    ? "Card KPI"
+                                    : f.chartType}
+                                </span>
+                              )}
                               {f.required && (
                                 <span className="text-[10px] font-mono text-red-600 font-medium">
                                   Obrigatório
@@ -1954,7 +2488,7 @@ export default function MainPage() {
                 </div>
               </div>
 
-              {/* Coluna Direita (lg:col-span-5): Live Mobile Preview Interativo */}
+              {/* Coluna Direita (lg:col-span-5): Live Mobile Preview Interativo Aprimorado */}
               <div className="lg:col-span-5 lg:sticky lg:top-24">
                 <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-2xs">
                   <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
@@ -2025,11 +2559,51 @@ export default function MainPage() {
                                   </option>
                                 ))}
                               </select>
+                            ) : f.type === "photo" ? (
+                              <label className="p-2.5 bg-white border border-dashed border-slate-300 rounded-lg text-center block cursor-pointer hover:border-emerald-700 transition-colors">
+                                <div className="flex items-center justify-center gap-1.5 text-emerald-800 text-[11px] font-medium">
+                                  <Camera className="w-3.5 h-3.5" strokeWidth={1.75} />
+                                  <span>{previewValues[f.id] ? "Alterar foto / anexo" : "Tirar foto ou anexar"}</span>
+                                </div>
+                                <span className="text-[9px] font-mono text-slate-400 mt-0.5 block truncate">
+                                  {previewValues[f.id] ? `📷 ${previewValues[f.id]}` : "JPG, PNG ou Laudo PDF"}
+                                </span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      setPreviewValues({ ...previewValues, [f.id]: file.name });
+                                    }
+                                  }}
+                                />
+                              </label>
                             ) : (
                               <div className="relative flex items-center">
+                                {f.type === "currency" && (
+                                  <span className="absolute left-2.5 text-[11px] font-mono font-semibold text-emerald-800 select-none">
+                                    R$
+                                  </span>
+                                )}
                                 <input
-                                  type={f.type}
-                                  placeholder={f.type === "number" ? "0.0" : "Preencher..."}
+                                  type={
+                                    f.type === "number" || f.type === "currency" || f.type === "area"
+                                      ? "number"
+                                      : f.type === "date"
+                                      ? "date"
+                                      : "text"
+                                  }
+                                  placeholder={
+                                    f.type === "currency"
+                                      ? "0,00"
+                                      : f.type === "area"
+                                      ? "0.00"
+                                      : f.type === "number"
+                                      ? "0.0"
+                                      : "Preencher..."
+                                  }
                                   value={previewValues[f.id] || ""}
                                   onChange={(e) =>
                                     setPreviewValues({
@@ -2038,12 +2612,18 @@ export default function MainPage() {
                                     })
                                   }
                                   className={`w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 ${
-                                    f.unit ? "pr-12" : ""
-                                  } ${f.type === "number" ? "font-mono tabular-nums" : ""}`}
+                                    f.type === "currency" ? "pl-8" : ""
+                                  } ${
+                                    (f.unit && f.type !== "currency") || f.type === "area" ? "pr-12" : ""
+                                  } ${
+                                    f.type === "number" || f.type === "currency" || f.type === "area"
+                                      ? "font-mono tabular-nums"
+                                      : ""
+                                  }`}
                                 />
-                                {f.unit && (
+                                {((f.unit && f.type !== "currency") || f.type === "area") && (
                                   <span className="absolute right-2 text-[9px] font-mono px-1 py-0.5 bg-slate-100 text-slate-600 rounded">
-                                    {f.unit}
+                                    {f.type === "area" ? (f.unit || "ha") : f.unit}
                                   </span>
                                 )}
                               </div>
@@ -2062,9 +2642,15 @@ export default function MainPage() {
                         </div>
 
                         <div className="pt-1">
-                          <div className="w-full py-2 bg-[#064E3B] text-white text-center text-[11px] font-semibold rounded-lg">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              showToast("Live Mobile Preview: Simulação de envio com sucesso! Dados validados.");
+                            }}
+                            className="w-full py-2 bg-[#064E3B] hover:bg-[#065F46] text-white text-center text-[11px] font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
+                          >
                             Enviar Dados da Propriedade
-                          </div>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -2307,9 +2893,19 @@ export default function MainPage() {
                         >
                           <span className="text-[10px] text-slate-400 block">{f.label}</span>
                           <span className="text-xs font-semibold text-slate-900 font-mono tabular-nums mt-1 block">
-                            {val !== undefined && val !== ""
-                              ? `${val} ${f.unit || ""}`
-                              : "—"}
+                            {val !== undefined && val !== "" ? (
+                              f.type === "currency" ? (
+                                `R$ ${typeof val === "number" ? val.toLocaleString("pt-BR") : !isNaN(Number(String(val).replace(",", "."))) ? Number(String(val).replace(",", ".")).toLocaleString("pt-BR") : val}`
+                              ) : f.type === "area" ? (
+                                `${val} ${f.unit || "ha"}`
+                              ) : f.type === "photo" ? (
+                                `📷 ${val}`
+                              ) : (
+                                `${val} ${f.unit || ""}`
+                              )
+                            ) : (
+                              "—"
+                            )}
                           </span>
                         </div>
                       );

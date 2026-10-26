@@ -75,8 +75,27 @@ export function AnalyticalCharts({
   };
 
   // Identificação dos campos elegíveis para análise
-  const numericFields = useMemo(() => fields.filter((f) => f.type === "number"), [fields]);
-  const selectFields = useMemo(() => fields.filter((f) => f.type === "select"), [fields]);
+  const numericFields = useMemo(
+    () =>
+      fields.filter(
+        (f) =>
+          (f.type === "number" || f.type === "currency" || f.type === "area") &&
+          f.chartType !== "none" &&
+          f.chartType !== "table"
+      ),
+    [fields]
+  );
+  const selectFields = useMemo(
+    () =>
+      fields.filter(
+        (f) => f.type === "select" && f.chartType !== "none" && f.chartType !== "table"
+      ),
+    [fields]
+  );
+  const kpiFields = useMemo(
+    () => fields.filter((f) => f.chartType === "kpi"),
+    [fields]
+  );
   const allAnalyticFields = useMemo(
     () => [...numericFields, ...selectFields],
     [numericFields, selectFields]
@@ -983,10 +1002,21 @@ export function AnalyticalCharts({
   const renderGridOverview = () => {
     // Agrupamento semântico
     const scaleFields = numericFields.filter(
-      (f) => f.id === "area_ha" || f.id === "producao" || f.id === "sacas_colhidas" || f.label.toLowerCase().includes("área") || f.label.toLowerCase().includes("produção")
+      (f) =>
+        f.type === "area" ||
+        f.id === "area_ha" ||
+        f.id === "producao" ||
+        f.id === "sacas_colhidas" ||
+        f.label.toLowerCase().includes("área") ||
+        f.label.toLowerCase().includes("produção")
     );
     const financeFields = numericFields.filter(
-      (f) => f.id === "custo_operacao" || f.label.toLowerCase().includes("custo") || f.label.toLowerCase().includes("preço") || f.label.toLowerCase().includes("valor")
+      (f) =>
+        f.type === "currency" ||
+        f.id === "custo_operacao" ||
+        f.label.toLowerCase().includes("custo") ||
+        f.label.toLowerCase().includes("preço") ||
+        f.label.toLowerCase().includes("valor")
     );
     const otherNumericFields = numericFields.filter(
       (f) => !scaleFields.includes(f) && !financeFields.includes(f)
@@ -994,6 +1024,56 @@ export function AnalyticalCharts({
 
     return (
       <div className="space-y-8">
+        {/* Bloco de Indicadores de Topo (KPI Cards Configurados) */}
+        {kpiFields.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-emerald-800" strokeWidth={1.75} />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-800">
+                  Indicadores de Topo (KPIs Estratégicos)
+                </h3>
+              </div>
+              <span className="text-[11px] font-mono text-slate-400">
+                {kpiFields.length} indicadores
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {kpiFields.map((field) => {
+                const values = submissions
+                  .map((s) => {
+                    const r = s.values[field.id];
+                    return typeof r === "number" ? r : parseFloat(String(r).replace(",", ".")) || 0;
+                  })
+                  .filter((v) => !isNaN(v) && v > 0);
+                const sum = values.reduce((a, b) => a + b, 0);
+                const avg = values.length > 0 ? sum / values.length : 0;
+                return (
+                  <div
+                    key={field.id}
+                    className="p-4 rounded-xl bg-white border border-[#E2E8F0] shadow-2xs"
+                  >
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block truncate">
+                      {field.label}
+                    </span>
+                    <div className="text-xl font-bold text-slate-900 font-mono tabular-nums mt-1">
+                      {field.type === "currency"
+                        ? `R$ ${sum.toLocaleString("pt-BR")}`
+                        : `${formatNum(sum)} ${field.unit || (field.type === "area" ? "ha" : "")}`}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+                      <span>Média: {field.type === "currency" ? `R$ ${formatNum(avg)}` : `${formatNum(avg)} ${field.unit || ""}`}</span>
+                      <span className="text-[10px] font-mono text-emerald-800 font-medium">
+                        {values.length} amostras
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {/* Bloco 1: Escala e Produção */}
         {scaleFields.length > 0 && (
           <div>

@@ -158,6 +158,35 @@ export function deleteField(id: string): void {
   saveFields(updated);
 }
 
+export function reorderFields(fromIndex: number, toIndex: number): CollectionField[] {
+  const fields = getFields();
+  if (
+    fromIndex < 0 ||
+    fromIndex >= fields.length ||
+    toIndex < 0 ||
+    toIndex >= fields.length ||
+    fromIndex === toIndex
+  ) {
+    return fields;
+  }
+  const updated = [...fields];
+  const [moved] = updated.splice(fromIndex, 1);
+  updated.splice(toIndex, 0, moved);
+  saveFields(updated);
+  return updated;
+}
+
+export function updateField(id: string, updates: Partial<Omit<CollectionField, "id">>): CollectionField | null {
+  const fields = getFields();
+  const index = fields.findIndex((f) => f.id === id);
+  if (index === -1) return null;
+  const updatedField = { ...fields[index], ...updates };
+  const updatedList = [...fields];
+  updatedList[index] = updatedField;
+  saveFields(updatedList);
+  return updatedField;
+}
+
 // --- PARSER INTELIGENTE DE TEXTO LIVRE ---
 
 export function extractMetricsFromText(text: string): { metrics: ExtractedMetric[]; tags: string[] } {

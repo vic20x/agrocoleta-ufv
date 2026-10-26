@@ -11,7 +11,16 @@ export interface AuthUser {
   createdAt: string;
 }
 
-export type FieldType = "number" | "text" | "select" | "date";
+export type FieldType =
+  | "number"
+  | "currency"
+  | "area"
+  | "select"
+  | "text"
+  | "date"
+  | "photo";
+
+export type AnalyticalChartType = "bar" | "distribution" | "kpi" | "table" | "none";
 
 export interface CollectionField {
   id: string;
@@ -20,7 +29,7 @@ export interface CollectionField {
   unit?: string;
   options?: string[];
   required?: boolean;
-  chartType: "bar" | "distribution" | "none";
+  chartType: AnalyticalChartType;
 }
 
 export interface ExtractedMetric {
