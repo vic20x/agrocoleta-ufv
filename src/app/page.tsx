@@ -645,7 +645,7 @@ export default function MainPage() {
 
             {/* Dica discreta de demonstração em uma linha única e sutil */}
             <div className="text-center text-[11px] text-slate-400">
-              Acesso de avaliação: use <span className="font-mono text-slate-600 font-medium">professor@ufv.br</span> ou <span className="font-mono text-slate-600 font-medium">antonio</span> (senha: <span className="font-mono text-slate-600 font-medium">1234</span>)
+              Acessos de teste: <span className="font-mono text-slate-600 font-medium">testeprofessor</span> ou <span className="font-mono text-slate-600 font-medium">testeprodutor</span> (senha: <span className="font-mono text-slate-600 font-medium">1234</span>)
             </div>
           </div>
         </div>

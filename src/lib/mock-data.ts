@@ -4,9 +4,26 @@ export const INITIAL_USERS: AuthUser[] = [
   {
     id: "user-prof",
     login: "professor@ufv.br",
-    name: "Prof. Dr. Marcelo (Agricultura Digital)",
+    name: "Prof. Dr. Orientador (Agricultura Digital UFV)",
     role: "PROFESSOR",
     createdAt: "2026-08-01",
+  },
+  {
+    id: "user-prof-teste",
+    login: "testeprofessor",
+    name: "Professor (Ambiente de Teste)",
+    role: "PROFESSOR",
+    createdAt: "2026-10-26",
+  },
+  {
+    id: "user-prod-teste",
+    login: "testeprodutor",
+    name: "Produtor (Ambiente de Teste)",
+    role: "PRODUCER",
+    propertyName: "Fazenda Experimental UFV",
+    cityState: "Viçosa - MG",
+    phone: "(31) 99876-5432",
+    createdAt: "2026-10-26",
   },
   {
     id: "user-prod-1",
