@@ -23,7 +23,15 @@ export function getUsers(): AuthUser[] {
       localStorage.setItem(USERS_KEY, JSON.stringify(INITIAL_USERS));
       return INITIAL_USERS;
     }
-    return JSON.parse(raw);
+    const stored: AuthUser[] = JSON.parse(raw);
+    // Garantir que usuários padrão (como testeprofessor, testeprodutor, etc.) sempre existam mesmo se o localStorage tiver versão antiga
+    const missing = INITIAL_USERS.filter((init) => !stored.some((s) => s.login === init.login));
+    if (missing.length > 0) {
+      const merged = [...stored, ...missing];
+      localStorage.setItem(USERS_KEY, JSON.stringify(merged));
+      return merged;
+    }
+    return stored;
   } catch {
     return INITIAL_USERS;
   }
