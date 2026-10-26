@@ -25,7 +25,7 @@ import {
 } from "@/types/producer";
 import { exportAnalysisToExcel, exportAnalysisToCSV } from "@/lib/export-utils";
 import { PRESET_TEMPLATES } from "@/lib/mock-data";
-import { AnalyticalCharts } from "@/components/AnalyticalCharts";
+import { AnalyticalCharts, AnalyticalViewMode } from "@/components/AnalyticalCharts";
 import {
   Sprout,
   Mail,
@@ -102,6 +102,8 @@ export default function MainPage() {
   const [selectedSubDetail, setSelectedSubDetail] = useState<FarmSubmission | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
+  const [activeAnalyticalField, setActiveAnalyticalField] = useState<string>("area_ha");
+  const [analyticalViewMode, setAnalyticalViewMode] = useState<AnalyticalViewMode>("DEEP_DIVE");
 
   // Estados do Construtor de Campos
   const [newFieldLabel, setNewFieldLabel] = useState("");
@@ -1337,11 +1339,22 @@ export default function MainPage() {
           {/* =============================================================== */}
           {activeProfTab === "GRAFICOS" && (
             <div className="space-y-6">
-              {/* KPIs Superiores com tabular-nums */}
+              {/* KPIs Superiores com tabular-nums e Ação Rápida de Foco */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-2xs">
+                <div
+                  onClick={() => {
+                    setAnalyticalViewMode("BENCHMARK_PROPERTIES");
+                    showToast("Exibindo matriz comparativa e benchmarking por propriedade.");
+                  }}
+                  title="Clique para alternar para a visão de benchmarking por propriedade"
+                  className={`bg-white border rounded-xl p-4 shadow-2xs cursor-pointer transition-all hover:border-emerald-700/60 hover:shadow-xs group ${
+                    analyticalViewMode === "BENCHMARK_PROPERTIES"
+                      ? "border-emerald-800 ring-2 ring-emerald-800/20"
+                      : "border-[#E2E8F0]"
+                  }`}
+                >
                   <div className="flex items-center justify-between text-slate-400 mb-2">
-                    <span className="text-[10px] font-mono uppercase tracking-wider">
+                    <span className="text-[10px] font-mono uppercase tracking-wider group-hover:text-emerald-800 transition-colors">
                       Registros no Escopo
                     </span>
                     <Database className="w-4 h-4 text-emerald-800" strokeWidth={1.75} />
@@ -1349,14 +1362,29 @@ export default function MainPage() {
                   <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
                     {filteredSubs.length}
                   </div>
-                  <span className="text-[11px] text-slate-500 mt-1 block">
-                    em {producerUsers.length} propriedades cadastradas
-                  </span>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
+                    <span>em {producerUsers.length} propriedades</span>
+                    <span className="text-[10px] text-emerald-800 font-medium group-hover:underline">
+                      Ver por fazenda →
+                    </span>
+                  </div>
                 </div>
 
-                <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-2xs">
+                <div
+                  onClick={() => {
+                    setActiveAnalyticalField("area_ha");
+                    setAnalyticalViewMode("DEEP_DIVE");
+                    showToast("Focando gráfico de Área Trabalhada (ha).");
+                  }}
+                  title="Clique para focar no gráfico analítico de Área Trabalhada"
+                  className={`bg-white border rounded-xl p-4 shadow-2xs cursor-pointer transition-all hover:border-emerald-700/60 hover:shadow-xs group ${
+                    analyticalViewMode === "DEEP_DIVE" && activeAnalyticalField === "area_ha"
+                      ? "border-emerald-800 ring-2 ring-emerald-800/20"
+                      : "border-[#E2E8F0]"
+                  }`}
+                >
                   <div className="flex items-center justify-between text-slate-400 mb-2">
-                    <span className="text-[10px] font-mono uppercase tracking-wider">
+                    <span className="text-[10px] font-mono uppercase tracking-wider group-hover:text-emerald-800 transition-colors">
                       Área Total Trabalhada
                     </span>
                     <MapPin className="w-4 h-4 text-emerald-800" strokeWidth={1.75} />
@@ -1368,14 +1396,33 @@ export default function MainPage() {
                     })}{" "}
                     <span className="text-xs font-normal text-slate-500">ha</span>
                   </div>
-                  <span className="text-[11px] text-slate-500 mt-1 block">
-                    soma dos talhões monitorados
-                  </span>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
+                    <span>soma dos talhões</span>
+                    <span className="text-[10px] text-emerald-800 font-medium group-hover:underline">
+                      Focar variável →
+                    </span>
+                  </div>
                 </div>
 
-                <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-2xs">
+                <div
+                  onClick={() => {
+                    // Seleciona producao ou sacas_colhidas
+                    const prodField = fields.find((f) => f.id === "producao" || f.id === "sacas_colhidas");
+                    if (prodField) {
+                      setActiveAnalyticalField(prodField.id);
+                    }
+                    setAnalyticalViewMode("DEEP_DIVE");
+                    showToast("Focando gráfico de Volume de Produção.");
+                  }}
+                  title="Clique para focar no gráfico analítico de Produção"
+                  className={`bg-white border rounded-xl p-4 shadow-2xs cursor-pointer transition-all hover:border-emerald-700/60 hover:shadow-xs group ${
+                    analyticalViewMode === "DEEP_DIVE" && (activeAnalyticalField === "producao" || activeAnalyticalField === "sacas_colhidas")
+                      ? "border-emerald-800 ring-2 ring-emerald-800/20"
+                      : "border-[#E2E8F0]"
+                  }`}
+                >
                   <div className="flex items-center justify-between text-slate-400 mb-2">
-                    <span className="text-[10px] font-mono uppercase tracking-wider">
+                    <span className="text-[10px] font-mono uppercase tracking-wider group-hover:text-emerald-800 transition-colors">
                       Volume de Produção
                     </span>
                     <Sprout className="w-4 h-4 text-emerald-800" strokeWidth={1.75} />
@@ -1384,14 +1431,32 @@ export default function MainPage() {
                     {totalProducaoSacas.toLocaleString("pt-BR")}{" "}
                     <span className="text-xs font-normal text-slate-500">sc / un</span>
                   </div>
-                  <span className="text-[11px] text-slate-500 mt-1 block">
-                    volume físico acumulado
-                  </span>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
+                    <span>volume acumulado</span>
+                    <span className="text-[10px] text-emerald-800 font-medium group-hover:underline">
+                      Focar variável →
+                    </span>
+                  </div>
                 </div>
 
-                <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-2xs">
+                <div
+                  onClick={() => {
+                    const costField = fields.find((f) => f.id === "custo_operacao" || f.id.includes("custo"));
+                    if (costField) {
+                      setActiveAnalyticalField(costField.id);
+                    }
+                    setAnalyticalViewMode("DEEP_DIVE");
+                    showToast("Focando gráfico de Custo Operacional.");
+                  }}
+                  title="Clique para focar no gráfico analítico de Custos"
+                  className={`bg-white border rounded-xl p-4 shadow-2xs cursor-pointer transition-all hover:border-emerald-700/60 hover:shadow-xs group ${
+                    analyticalViewMode === "DEEP_DIVE" && activeAnalyticalField === "custo_operacao"
+                      ? "border-emerald-800 ring-2 ring-emerald-800/20"
+                      : "border-[#E2E8F0]"
+                  }`}
+                >
                   <div className="flex items-center justify-between text-slate-400 mb-2">
-                    <span className="text-[10px] font-mono uppercase tracking-wider">
+                    <span className="text-[10px] font-mono uppercase tracking-wider group-hover:text-emerald-800 transition-colors">
                       Custo Operacional
                     </span>
                     <BarChart3 className="w-4 h-4 text-emerald-800" strokeWidth={1.75} />
@@ -1399,14 +1464,24 @@ export default function MainPage() {
                   <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
                     R$ {totalCustos.toLocaleString("pt-BR")}
                   </div>
-                  <span className="text-[11px] text-slate-500 mt-1 block">
-                    dispêndio reportado nas operações
-                  </span>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
+                    <span>dispêndio reportado</span>
+                    <span className="text-[10px] text-emerald-800 font-medium group-hover:underline">
+                      Focar variável →
+                    </span>
+                  </div>
                 </div>
               </div>
 
               {/* Componente Dedicado de Gráficos Vetoriais Reais em SVG */}
-              <AnalyticalCharts fields={fields} submissions={filteredSubs} />
+              <AnalyticalCharts
+                fields={fields}
+                submissions={filteredSubs}
+                activeFieldId={activeAnalyticalField}
+                onSelectField={(id) => setActiveAnalyticalField(id)}
+                viewMode={analyticalViewMode}
+                onViewModeChange={(mode) => setAnalyticalViewMode(mode)}
+              />
             </div>
           )}
 
