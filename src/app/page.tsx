@@ -29,8 +29,13 @@ import {
 import { exportAnalysisToExcel, exportAnalysisToCSV } from "@/lib/export-utils";
 import { PRESET_TEMPLATES } from "@/lib/mock-data";
 import { AnalyticalCharts, AnalyticalViewMode } from "@/components/AnalyticalCharts";
+import { ProfessorTutorialModal } from "@/components/ProfessorTutorialModal";
+import { ProfessorGuideTab } from "@/components/ProfessorGuideTab";
 import {
   Sprout,
+  GraduationCap,
+  HelpCircle,
+  Compass,
   Mail,
   Lock,
   User,
@@ -109,8 +114,9 @@ export default function MainPage() {
 
   // Estados do Professor
   const [activeProfTab, setActiveProfTab] = useState<
-    "GRAFICOS" | "TABELA" | "CONFIGURAR" | "SUGESTOES"
+    "GRAFICOS" | "TABELA" | "CONFIGURAR" | "SUGESTOES" | "GUIA"
   >("GRAFICOS");
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [selectedProducerFilter, setSelectedProducerFilter] = useState<string>("TODOS");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedSubDetail, setSelectedSubDetail] = useState<FarmSubmission | null>(null);
@@ -713,8 +719,31 @@ export default function MainPage() {
             <div className="text-center text-[11px] text-slate-400">
               Acessos de teste: <span className="font-mono text-slate-600 font-medium">testeprofessor</span> ou <span className="font-mono text-slate-600 font-medium">testeprodutor</span> (senha: <span className="font-mono text-slate-600 font-medium">1234</span>)
             </div>
+
+            {/* Botão Didático de Apresentação Institucional / Tutorial */}
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => setIsTutorialOpen(true)}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 text-emerald-900 text-xs font-medium transition-colors shadow-2xs cursor-pointer"
+              >
+                <GraduationCap className="w-3.5 h-3.5 text-emerald-700" strokeWidth={1.75} />
+                <span>Ver Guia do Professor & Funcionalidades da Plataforma</span>
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Modal de Tutorial Didático para Visitantes / Avaliadores */}
+        <ProfessorTutorialModal
+          isOpen={isTutorialOpen}
+          onClose={() => setIsTutorialOpen(false)}
+          onNavigateTab={(tab) => {
+            login("testeprofessor", "1234");
+            setActiveProfTab(tab);
+            setIsTutorialOpen(false);
+          }}
+        />
       </div>
     );
   }
@@ -1254,6 +1283,11 @@ export default function MainPage() {
       description:
         "Diretrizes metodológicas, prioridades de evolução do sistema e exportação rápida para WhatsApp.",
     },
+    GUIA: {
+      title: "Guia Metodológico & Roteiro Acadêmico",
+      description:
+        "Documentação didática completa, checklist prático de 7 missões, comparativo de jornadas e FAQ de estágio.",
+    },
   }[activeProfTab];
 
   return (
@@ -1373,7 +1407,51 @@ export default function MainPage() {
                   </span>
                 )}
               </button>
+
+              <button
+                onClick={() => setActiveProfTab("GUIA")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                  activeProfTab === "GUIA"
+                    ? "bg-emerald-950/90 text-white border border-emerald-800/70"
+                    : "text-slate-400 hover:text-slate-100 hover:bg-slate-900"
+                }`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <GraduationCap
+                    className={`w-4 h-4 ${
+                      activeProfTab === "GUIA" ? "text-emerald-400" : "text-slate-400"
+                    }`}
+                    strokeWidth={1.75}
+                  />
+                  <span>Guia do Professor</span>
+                </span>
+                <span className="px-1.5 py-0.2 text-[9px] font-mono rounded bg-emerald-900/80 text-emerald-300 border border-emerald-700/60 uppercase">
+                  UFV
+                </span>
+              </button>
             </nav>
+          </div>
+
+          {/* Banner de Ação Rápida para Abrir o Tour Guiado do Professor */}
+          <div className="px-3 pt-1 pb-2">
+            <button
+              onClick={() => setIsTutorialOpen(true)}
+              className="w-full p-2.5 rounded-xl bg-gradient-to-r from-emerald-900/50 to-slate-900 border border-emerald-700/40 hover:border-emerald-500/60 text-left transition-all group cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
+                  <Compass className="w-3.5 h-3.5 text-emerald-400 group-hover:rotate-45 transition-transform" />
+                  <span>Tutorial Interativo</span>
+                </span>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 mt-1 font-medium">
+                Tour guiado em 7 etapas didáticas
+              </p>
+            </button>
           </div>
         </div>
 
@@ -1474,6 +1552,16 @@ export default function MainPage() {
                   </div>
                 </>
               )}
+
+              {/* Botão de Tutorial Didático / Como Funciona? na Topbar */}
+              <button
+                onClick={() => setIsTutorialOpen(true)}
+                title="Abrir Tour Guiado Interativo da Plataforma"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-900 rounded-lg text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
+              >
+                <Compass className="w-3.5 h-3.5 text-emerald-700" strokeWidth={1.75} />
+                <span>Como Funciona?</span>
+              </button>
 
               {/* Botão de Restaurar Dados Padrão com Confirmação Inline Elegante */}
               {!confirmingReset ? (
@@ -2821,8 +2909,25 @@ export default function MainPage() {
               </div>
             </div>
           )}
+
+          {/* =============================================================== */}
+          {/* ABA 5: GUIA DO PROFESSOR, CHECKLIST E DOCUMENTAÇÃO ACADÊMICA     */}
+          {/* =============================================================== */}
+          {activeProfTab === "GUIA" && (
+            <ProfessorGuideTab
+              onNavigateTab={(tab) => setActiveProfTab(tab)}
+              onOpenTutorialModal={() => setIsTutorialOpen(true)}
+            />
+          )}
         </main>
       </div>
+
+      {/* MODAL DE TUTORIAL DIDÁTICO / TOUR GUIADO DO PROFESSOR */}
+      <ProfessorTutorialModal
+        isOpen={isTutorialOpen}
+        onClose={() => setIsTutorialOpen(false)}
+        onNavigateTab={(tab) => setActiveProfTab(tab)}
+      />
 
       {/* SLIDE-OVER DRAWER LATERAL DIREITO PARA INSPEÇÃO DE REGISTRO */}
       {selectedSubDetail && (
